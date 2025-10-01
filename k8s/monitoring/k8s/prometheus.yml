@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: reservation-app
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: prometheus } }
+  template:
+    metadata:
+      labels: { app: prometheus }
+    spec:
+      serviceAccountName: prometheus
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.55.0
+          args: ["--config.file=/etc/prometheus/prometheus.yml","--storage.tsdb.path=/prometheus"]
+          ports: [{ containerPort: 9090, name: http }]
+          volumeMounts:
+            - { name: prom-config, mountPath: /etc/prometheus }
+            - { name: prom-rules,  mountPath: /etc/prometheus/rules }
+            - { name: prom-data,   mountPath: /prometheus }
+      volumes:
+        - name: prom-config
+          configMap: { name: prometheus-config }
+        - name: prom-rules
+          configMap: { name: prometheus-rules }
+        - name: prom-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: reservation-app
+spec:
+  selector: { app: prometheus }
+  ports:
+    - { name: http, port: 9090, targetPort: 9090 }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: prometheus
+  namespace: reservation-app
+spec:
+  to: { kind: Service, name: prometheus }
+  port: { targetPort: http }

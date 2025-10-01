@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reservation-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: reservation-app }
+  template:
+    metadata:
+      labels: { app: reservation-app }
+    spec:
+      containers:
+        - name: reservation-app
+          image: default-route-openshift-image-registry.apps-crc.testing/reservation-app/reservation-app
+          ports:
+            - containerPort: 3000
+          readinessProbe:            
+            httpGet:                 
+              path: /rooms           
+              port: 3000             
+            initialDelaySeconds: 3   
+            periodSeconds: 5         
+          livenessProbe:             
+            httpGet:                 
+              path: /rooms         
+              port: 3000             
+            initialDelaySeconds: 5   
+            periodSeconds: 10        
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reservation-app
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/metrics"
+    prometheus.io/port: "3000"
+spec:
+  selector: { app: reservation-app }
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+# If you're on OpenShift/CRC, keep this Route.
+# On pure Kubernetes, replace with an Ingress.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: reservation-app
+spec:
+  to:
+    kind: Service
+    name: reservation-app
+  port:
+    targetPort: http

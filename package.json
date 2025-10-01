@@ -1,0 +1,14 @@
+{
+    "name": "reservation-salles",
+    "version": "1.0.0",
+    "description": "App simple de réservation de salles (Node.js/Express)",
+    "main": "app.js",
+    "scripts": {
+        "start": "node app.js"
+    },
+    "dependencies": {
+        "body-parser": "^1.20.2",
+        "express": "^4.19.2",
+        "prom-client": "^14.0.0"
+    }
+}

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Réservation de Séminaires</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 24px;
+      max-width: 900px;
+    }
+    h1 {
+      margin-bottom: 0.25rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    fieldset {
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    legend {
+      padding: 0 8px;
+    }
+    label {
+      display: block;
+      margin: 8px 0 4px;
+    }
+    input,
+    select,
+    button {
+      padding: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th,
+    td {
+      border: 1px solid #eee;
+      padding: 8px;
+      text-align: left;
+    }
+    .muted {
+      color: #666;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Réservation de Séminaires</h1>
+  <p class="muted">Version simple (Node.js + Express, données en mémoire)</p>
+
+  <div class="grid">
+    <fieldset>
+      <legend>Réserver un Séminaire</legend>
+      <label>Nom</label>
+      <input id="roomName" placeholder="Ex: Salle C" />
+      <label>Capacité</label>
+      <input id="roomCapacity" type="number" min="1" value="10" />
+      <button id="btnAddRoom">Ajouter</button>
+      <div id="roomMsg" class="muted"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Créer une réservation</legend>
+      <label>Salle</label>
+      <select id="selRoom"></select>
+      <label>Utilisateur</label>
+      <select id="selUser"></select>
+      <label>Date (YYYY-MM-DD)</label>
+      <input id="resDate" type="date" />
+      <button id="btnReserve">Réserver</button>
+      <div id="resMsg" class="muted"></div>
+    </fieldset>
+  </div>
+
+  <fieldset style="margin-top:24px;">
+    <legend>Listes</legend>
+
+    <h3>Salles</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nom</th>
+          <th>Capacité</th>
+        </tr>
+      </thead>
+      <tbody id="tblRooms"></tbody>
+    </table>
+
+    <h3 style="margin-top:16px;">Réservations</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Séminaire</th>
+          <th>Utilisateur</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tblRes"></tbody>
+    </table>
+  </fieldset>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+
+    async function fetchJSON(url, options) {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Erreur HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+
+    async function loadRooms() {
+      const rooms = await fetchJSON('/rooms');
+      const tbody = $('#tblRooms');
+      const sel = $('#selRoom');
+      tbody.innerHTML = '';
+      sel.innerHTML = '';
+      rooms.forEach(r => {
+        tbody.insertAdjacentHTML(
+          'beforeend',
+          `<tr><td>${r.id}</td><td>${r.name}</td><td>${r.capacity}</td></tr>`
+        );
+        sel.insertAdjacentHTML(
+          'beforeend',
+          `<option value="${r.id}">${r.name} (${r.capacity})</option>`
+        );
+      });
+    }
+
+    async function loadUsers() {
+      const users = await fetchJSON('/users');
+      const sel = $('#selUser');
+      sel.innerHTML = '';
+      users.forEach(u =>
+        sel.insertAdjacentHTML(
+          'beforeend',
+          `<option value="${u.id}">${u.name}</option>`
+        )
+      );
+    }
+
+    async function loadReservations() {
+      const data = await fetchJSON('/reservations');
+      const tbody = $('#tblRes');
+      tbody.innerHTML = '';
+      data.forEach(r => {
+        tbody.insertAdjacentHTML(
+          'beforeend',
+          `
+          <tr>
+            <td>${r.id}</td>
+            <td>${r.roomId}</td>
+            <td>${r.userId}</td>
+            <td>${r.date}</td>
+            <td><button data-id="${r.id}" class="btn-del">Supprimer</button></td>
+          </tr>`
+        );
+      });
+
+      // Bind delete
+      tbody.querySelectorAll('.btn-del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          await fetchJSON(`/reservations/${id}`, { method: 'DELETE' });
+          await loadReservations();
+        });
+      });
+    }
+
+    // Handlers
+    $('#btnAddRoom').addEventListener('click', async () => {
+      try {
+        const name = $('#roomName').value.trim();
+        const capacity = Number($('#roomCapacity').value);
+        const r = await fetchJSON('/rooms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, capacity })
+        });
+        $('#roomMsg').textContent = `Séminaire réservé (#${r.id})`;
+        $('#roomName').value = '';
+        await loadRooms();
+      } catch (e) {
+        $('#roomMsg').textContent = e.message;
+      }
+    });
+
+    $('#btnReserve').addEventListener('click', async () => {
+      try {
+        const roomId = Number($('#selRoom').value);
+        const userId = Number($('#selUser').value);
+        const date = $('#resDate').value;
+        await fetchJSON('/reservations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId, userId, date })
+        });
+        $('#resMsg').textContent = 'Réservation créée';
+        await loadReservations();
+      } catch (e) {
+        $('#resMsg').textContent = e.message;
+      }
+    });
+
+    // Init
+    (async function init() {
+      await loadRooms();
+      await loadUsers();
+      await loadReservations();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+apiVersion: skaffold/v2beta29
+kind: Config
+metadata:
+  name: reservation-app
+build:
+  tagPolicy:
+    gitCommit: {}
+  local:
+    push: true     # push to cluster registry (CRC/OpenShift) or your configured registry
+  artifacts:
+    - image: default-route-openshift-image-registry.apps-crc.testing/reservation-app/reservation-app
+      context: .
+      docker:
+        dockerfile: Dockerfile
+deploy:
+  kubectl:
+    manifests:
+      - k8s/reservation-app.yml
+      - k8s/monitoring/k8s/prometheus-rbac.yml
+      - k8s/monitoring/k8s/prometheus-configmap.yml
+      - k8s/monitoring/k8s/prometheus.yml
+      - k8s/monitoring/k8s/grafana-datasource.yml
+      - k8s/monitoring/k8s/grafana.yml
+      - k8s/monitoring/k8s/prometheus-rules.yml
+
+portForward:
+  - resourceType: service
+    resourceName: reservation-app
+    port: 3000
+    localPort: 3000
+  - resourceType: service
+    resourceName: prometheus
+    port: 9090
+    localPort: 9090
+  - resourceType: service
+    resourceName: grafana
+    port: 3000
+    localPort: 3001
+
+profiles:
+  - name: app-only
+    deploy:
+      kubectl:
+        manifests:
+          - k8s/reservation-app.yaml
+    portForward:
+      - resourceType: service
+        resourceName: reservation-app
+        port: 3000
+        localPort: 3000
+
+  - name: with-monitoring
+    deploy:
+      kubectl:
+        manifests:
+          - k8s/reservation-app.yml
+          - k8s/monitoring/k8s/prometheus-rbac.yml
+          - k8s/monitoring/k8s/prometheus-configmap.yml
+          - k8s/monitoring/k8s/prometheus.yml
+          - k8s/monitoring/k8s/grafana-datasource.yml
+          - k8s/monitoring/k8s/grafana.yml
+    portForward:
+      - resourceType: service
+        resourceName: reservation-app
+        port: 3000
+        localPort: 3000
+      - resourceType: service
+        resourceName: prometheus
+        port: 9090
+        localPort: 9090
+      - resourceType: service
+        resourceName: grafana
+        port: 3000
+        localPort: 3001

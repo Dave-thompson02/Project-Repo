@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: reservation-app
+data:
+  rules.yml: |
+    groups:
+    - name: reservation-app.rules
+      rules:
+      # Recording rules
+      - record: app:rps:rate1m
+        expr: sum(rate(http_request_duration_seconds_count[1m]))
+      - record: app:errors_ratio:5m
+        expr: |
+          sum(rate(http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_request_duration_seconds_count[5m]))
+      - record: app:latency_p95:5m
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+      # Alerts
+      - alert: AppDown
+        expr: sum(up) == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "App is down"
+      - alert: HighErrorRate
+        expr: app:errors_ratio:5m > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "5xx ratio > 5% (5m)"
+      - alert: HighLatencyP95
+        expr: app:latency_p95:5m > 0.5
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 latency > 500 ms (5m)"
+      - alert: HighMemory
+        expr: process_resident_memory_bytes > 3e8
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "RSS memory > 300MB (10m)"
+      - alert: EventLoopLagHigh
+        expr: nodejs_eventloop_lag_seconds > 0.1
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Node event loop lag > 100ms (5m)"

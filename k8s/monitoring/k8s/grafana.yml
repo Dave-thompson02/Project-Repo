@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: reservation-app
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: grafana } }
+  template:
+    metadata:
+      labels: { app: grafana }
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.2.0
+          ports: [{ containerPort: 3000, name: http }]
+          env:
+            - { name: GF_SECURITY_ADMIN_USER,     value: admin }
+            - { name: GF_SECURITY_ADMIN_PASSWORD, value: admin }
+          volumeMounts:
+            - { name: grafana-ds, mountPath: /etc/grafana/provisioning/datasources }
+      volumes:
+        - name: grafana-ds
+          configMap: { name: grafana-datasources }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: reservation-app
+spec:
+  selector: { app: grafana }
+  ports:
+    - { name: http, port: 3000, targetPort: 3000 }
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: grafana
+  namespace: reservation-app
+spec:
+  to: { kind: Service, name: grafana }
+  port: { targetPort: http }
