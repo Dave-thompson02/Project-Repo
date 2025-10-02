@@ -19,9 +19,15 @@ spec:
             - { name: GF_SECURITY_ADMIN_PASSWORD, value: admin }
           volumeMounts:
             - { name: grafana-ds, mountPath: /etc/grafana/provisioning/datasources }
+            - { name: grafana-dp, mountPath: /etc/grafana/provisioning/dashboards }   # provider
+            - { name: grafana-db, mountPath: /var/lib/grafana/dashboards } # Dashboards json
       volumes:
         - name: grafana-ds
           configMap: { name: grafana-datasources }
+        - name: grafana-dp #NEW
+          configMap: { name: grafana-dashboard-providers }
+        - name: grafana-db #NEW
+          configMap: { name: grafana-dashboards }
 ---
 apiVersion: v1
 kind: Service

@@ -22,6 +22,8 @@ deploy:
       - k8s/monitoring/k8s/grafana-datasource.yml
       - k8s/monitoring/k8s/grafana.yml
       - k8s/monitoring/k8s/prometheus-rules.yml
+      - k8s/monitoring/k8s/grafana-dashboards-provider.yml #
+      - k8s/monitoring/k8s/grafana-dashboard.json.yml #
 
 portForward:
   - resourceType: service

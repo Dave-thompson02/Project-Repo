@@ -11,15 +11,25 @@ data:
       # Recording rules
       - record: app:rps:rate1m
         expr: sum(rate(http_request_duration_seconds_count[1m]))
+      # Error ratio (5xx / all). clamp_min keeps denom >=1 so we get 0 instead of NaN when idle.
       - record: app:errors_ratio:5m
         expr: |
-          sum(rate(http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+          sum(rate(http_request_duration_seconds_count{namespace="reservation-app",service="reservation-app",status_code=~"5.."}[5m]))
           /
-          sum(rate(http_request_duration_seconds_count[5m]))
+          clamp_min(sum(rate(http_request_duration_seconds_count{namespace="reservation-app",service="reservation-app"}[5m])), 1)
+
+      # Availability percentage (SLO-style)
+      - record: app:availability_pct:5m
+        expr: 100 * (1 - app:errors_ratio:5m)
+
+      # Latency p95 over 5m
       - record: app:latency_p95:5m
         expr: |
-          histogram_quantile(0.95,
-            sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket{namespace="reservation-app",service="reservation-app"}[5m]))
+            by (le)
+          )
       # Alerts
       - alert: AppDown
         expr: sum(up) == 0
